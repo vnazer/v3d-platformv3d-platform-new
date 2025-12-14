@@ -1,0 +1,427 @@
+// Prisma Schema for V3D Platform
+// Multi-tenant SaaS with advanced data modeling
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN  // MAGAMA staff - full system access
+  ADMIN        // Client organization admin
+  MANAGER      // Sales manager
+  AGENT        // Sales agent
+  USER         // Regular user
+  VIEWER       // Read-only access
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+  DRAFT
+  COMPLETED
+}
+
+enum LeadStage {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  READ
+  EXPORT
+  IMPORT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM_NOTIFICATION
+}
+
+enum UnitType {
+  APARTMENT
+  HOUSE
+  COMMERCIAL
+  LAND
+  OFFICE
+  PARKING
+  STORAGE
+}
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  UNAVAILABLE
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
+model Organization {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  
+  // Contact info
+  email           String?
+  phone           String?
+  website         String?
+  
+  // Branding
+  logo_url        String?
+  
+  // Subscription & billing
+  plan            String   @default("free")
+  subscription_status String @default("active")
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  // Relations
+  users           User[]
+  projects        Project[]
+  leads           Lead[]
+  messages        Message[]
+  audit_logs      AuditLog[]
+  settings        OrganizationSettings?
+
+  @@index([slug])
+}
+
+model OrganizationSettings {
+  id                    String   @id @default(cuid())
+  organization_id       String   @unique
+  organization          Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  
+  // Currency settings
+  default_currency_id   String?
+  allowed_currency_ids  String[] @default([])  // Array of currency IDs
+  
+  // Unit management permissions
+  allow_bulk_updates    Boolean  @default(true)
+  allow_csv_import      Boolean  @default(true)
+  require_approval      Boolean  @default(false)  // Require MAGAMA approval for changes
+  
+  // CRM Integration settings
+  crm_enabled           Boolean  @default(false)
+  crm_type              String?  // salesforce, hubspot, zoho, custom
+  crm_api_key           String?  @db.Text
+  crm_webhook_url       String?
+  crm_sync_direction    String?  @default("one_way")  // one_way, two_way
+  
+  // Custom settings (JSON for flexibility)
+  custom_settings       Json?    @default("{}")
+  
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+  
+  @@index([organization_id])
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String
+  password_hash   String
+  first_name      String?
+  last_name       String?
+  avatar_url      String?
+  role            UserRole @default(USER)
+  
+  // Account status
+  is_active       Boolean  @default(true)
+  email_verified  Boolean  @default(false)
+  last_login      DateTime?
+  
+  organization_id String
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  // Relations
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  assigned_leads  Lead[] @relation("AssignedToUser")
+  messages        Message[]
+  audit_logs      AuditLog[]
+
+  @@unique([email, organization_id])
+  @@index([organization_id])
+  @@index([role])
+  @@index([is_active])
+}
+
+model Currency {
+  id                String   @id @default(cuid())
+  code              String   @unique // USD, CLP, UF
+  name              String   // Dólar estadounidense, Peso chileno, UF
+  symbol            String   // $, $, UF
+  decimal_places    Int      @default(2)
+  is_active         Boolean  @default(true)
+  
+  // Exchange rate to USD (for conversions)
+  exchange_rate_to_usd Float? // 1.0 for USD, ~950 for CLP, ~0.035 for UF
+  
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  
+  // Relations
+  units             Unit[]
+  
+  @@index([code])
+  @@index([is_active])
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  status          ProjectStatus @default(DRAFT)
+  
+  // Location & Metadata
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  
+  // 3D & Media Assets
+  thumbnail_url   String?
+  matterport_url  String?
+  featured_image  String?
+  
+  // Settings (JSONB for flexibility)
+  settings        Json     @default("{\"color\": \"#1a73e8\", \"visibility\": \"private\"}")
+  
+  // Tracking
+  organization_id String
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  archived_at     DateTime?
+
+  // Relations
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  units           Unit[]
+  leads           Lead[]
+  messages        Message[]
+  audit_logs      AuditLog[]
+
+  @@index([organization_id])
+  @@index([status])
+  @@index([created_at])
+}
+
+model Unit {
+  id              String   @id @default(cuid())
+  sku             String
+  name            String?
+  description     String?
+  
+  // Type and Status
+  unit_type       UnitType @default(APARTMENT)
+  status          UnitStatus @default(AVAILABLE)
+  
+  // Pricing (multi-price support)
+  price           Decimal  @db.Decimal(18, 2) // Main/display price
+  currency_id     String
+  currency        Currency @relation(fields: [currency_id], references: [id])
+  
+  cost_price      Decimal? @db.Decimal(18, 2) // Internal cost
+  list_price      Decimal? @db.Decimal(18, 2) // List/catalog price
+  sale_price      Decimal? @db.Decimal(18, 2) // Final sale price
+  discount_percentage Decimal? @db.Decimal(5, 2)
+  
+  // Unit specifications
+  area_sqm        Float?
+  bedrooms        Int?
+  bathrooms       Float?
+  floor           Int?
+  
+  // Media
+  image_url       String?
+  floor_plan_url  String?
+  features        Json?    @default("{}") // Additional features as JSON
+  
+  // Reservation/Sales tracking
+  reserved_until  DateTime?
+  reserved_by_id  String?  // Lead ID who reserved
+  sold_at         DateTime?
+  sold_to_id      String?  // Lead ID who bought
+  
+  project_id      String
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  // Relations
+  project         Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  reserved_by     Lead?    @relation("ReservedUnits", fields: [reserved_by_id], references: [id])
+  sold_to         Lead?    @relation("SoldUnits", fields: [sold_to_id], references: [id])
+  interested_leads Lead[]  // Leads interested in this specific unit
+  audit_logs      AuditLog[]
+
+  @@unique([sku, project_id])
+  @@index([project_id])
+  @@index([currency_id])
+  @@index([status])
+  @@index([unit_type])
+}
+
+model Lead {
+  id              String   @id @default(cuid())
+  name            String
+  email           String
+  phone           String?
+  
+  // Lead funnel
+  stage           LeadStage @default(NEW)
+  source          String?
+  notes           String?
+  
+  // Assignment & Relations
+  assigned_to_id  String?
+  project_id      String
+  unit_id         String?
+  organization_id String
+  
+  // Timeline
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  last_contacted  DateTime?
+  converted_at    DateTime?
+
+  // Relations
+  assigned_to     User?    @relation("AssignedToUser", fields: [assigned_to_id], references: [id], onDelete: SetNull)
+  project         Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  unit            Unit?    @relation(fields: [unit_id], references: [id], onDelete: SetNull)
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  messages        Message[]
+  audit_logs      AuditLog[]
+  
+  // Unit tracking (for multi-unit scenarios)
+  reserved_units  Unit[]   @relation("ReservedUnits")
+  sold_units      Unit[]   @relation("SoldUnits")
+
+  @@index([organization_id])
+  @@index([project_id])
+  @@index([stage])
+  @@index([assigned_to_id])
+  @@index([email])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  type            MessageType @default(TEXT)
+  content         String
+  
+  // Relations
+  user_id         String?
+  lead_id         String?
+  project_id      String?
+  organization_id String
+  
+  // Media attachments
+  attachment_url  String?
+  metadata        Json?
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  // Relations
+  user            User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  lead            Lead?    @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  project         Project? @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@index([organization_id])
+  @@index([lead_id])
+  @@index([project_id])
+  @@index([created_at])
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  action          AuditAction
+  entity_type     String
+  entity_id       String
+  
+  // Change tracking
+  changes         Json?
+  old_values      Json?
+  new_values      Json?
+  
+  ip_address      String?
+  user_agent      String?
+  
+  // Relations
+  user_id         String?
+  organization_id String
+  project_id      String?
+  lead_id         String?
+  unit_id         String?
+  
+  created_at      DateTime @default(now())
+
+  // Relations
+  user            User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  project         Project? @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  lead            Lead?    @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  unit            Unit?    @relation(fields: [unit_id], references: [id], onDelete: Cascade)
+
+  @@index([organization_id])
+  @@index([action])
+  @@index([entity_type])
+  @@index([user_id])
+  @@index([created_at])
+}
+
+// ============================================
+// OPTIONAL: ADVANCED MODELS (Future use)
+// ============================================
+
+model Integration {
+  id              String   @id @default(cuid())
+  name            String
+  type            String   // slack, zapier, webhook, etc.
+  is_active       Boolean  @default(true)
+  
+  api_key         String   // Encrypted in production
+  webhook_url     String?
+  config          Json     @default("{}")
+  
+  organization_id String
+  created_at      DateTime @default(now())
+
+  @@index([organization_id])
+}
+
+model ApiKey {
+  id              String   @id @default(cuid())
+  name            String
+  key             String   @unique
+  secret          String
+  
+  last_used_at    DateTime?
+  expires_at      DateTime?
+  is_active       Boolean  @default(true)
+  
+  user_id         String
+  organization_id String
+  created_at      DateTime @default(now())
+
+  @@index([organization_id])
+}

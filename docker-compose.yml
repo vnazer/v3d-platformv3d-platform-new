@@ -1,0 +1,171 @@
+# V3D Platform - Docker Compose
+# Local development environment with PostgreSQL, Redis, and API
+
+version: '3.9'
+
+services:
+  # ============================================
+  # PostgreSQL Database
+  # ============================================
+  postgres:
+    image: postgres:15.5-alpine
+    container_name: v3d-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-v3ddb}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist data between restarts
+      - postgres_data:/var/lib/postgresql/data
+      # Initialize database with migrations
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - v3d-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ============================================
+  # Redis Cache
+  # ============================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: v3d-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis123}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - v3d-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ============================================
+  # V3D API Server (DISABLED - Run locally with pnpm run dev)
+  # ============================================
+  # api:
+  #   build:
+  #     context: ./apps/api
+  #     dockerfile: Dockerfile.api
+  #     args:
+  #       - BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+  #       - VCS_REF=$(git rev-parse --short HEAD)
+  #       - VERSION=dev
+  #   container_name: v3d-api
+  #   environment:
+  #     # Node environment
+  #     NODE_ENV: development
+  #     PORT: 3000
+  #     LOG_LEVEL: debug
+  #
+  #     # Database
+  #     DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-v3ddb}
+  #
+  #     # Redis
+  #     REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
+  #
+  #     # JWT
+  #     JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+  #
+  #     # CORS
+  #     ALLOWED_ORIGINS: http://localhost:3001,http://localhost:3000
+  #
+  #     # AWS (for local development)
+  #     AWS_REGION: ${AWS_REGION:-us-east-1}
+  #     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+  #     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+  #     S3_BUCKET: ${S3_BUCKET:-v3d-media-dev}
+  #
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   volumes:
+  #     # Hot reload in development mode
+  #     - ./apps/api:/app
+  #     - /app/node_modules # Don't overwrite container's node_modules
+  #   networks:
+  #     - v3d-network
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+  #   restart: unless-stopped
+
+  # ============================================
+  # pgAdmin (PostgreSQL Management)
+  # ============================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: v3d-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@v3d.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - v3d-network
+    restart: unless-stopped
+
+  # ============================================
+  # Redis Commander (Redis Management)
+  # ============================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: v3d-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis123}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - v3d-network
+    restart: unless-stopped
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+  v3d-network:
+    driver: bridge
+
+# ============================================
+# USAGE
+# ============================================
+# docker-compose up -d                    # Start all services
+# docker-compose down                     # Stop all services
+# docker-compose logs -f api              # View API logs
+# docker-compose exec api npm run migrate # Run migrations
+# docker-compose ps                       # View running services

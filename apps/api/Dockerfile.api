@@ -1,0 +1,98 @@
+# V3D Platform - API Dockerfile
+# Multi-stage build for production-optimized Node.js API
+
+# ============================================
+# STAGE 1: DEPENDENCIES
+# ============================================
+
+FROM node:18-alpine AS dependencies
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --omit=dev && \
+    npm cache clean --force
+
+# ============================================
+# STAGE 2: BUILD
+# ============================================
+
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev)
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+# ============================================
+# STAGE 3: RUNTIME
+# ============================================
+
+FROM node:18-alpine AS runtime
+
+WORKDIR /app
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init curl
+
+# Create app user (non-root for security)
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy production dependencies from dependencies stage
+COPY --from=dependencies /app/node_modules ./node_modules
+
+# Copy package files
+COPY --from=builder /app/package*.json ./
+
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+
+# Change ownership to nodejs user
+RUN chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start application
+CMD ["node", "dist/index.js"]
+
+# ============================================
+# BUILD ARGUMENTS
+# ============================================
+
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION=latest
+
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+    org.opencontainers.image.url="https://github.com/yourorg/v3d-platform" \
+    org.opencontainers.image.source="https://github.com/yourorg/v3d-platform" \
+    org.opencontainers.image.version="${VERSION}" \
+    org.opencontainers.image.revision="${VCS_REF}" \
+    org.opencontainers.image.vendor="V3D" \
+    org.opencontainers.image.title="V3D Platform API" \
+    org.opencontainers.image.description="Enterprise SaaS backend for real estate technology platform"
