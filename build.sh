@@ -9,9 +9,10 @@ echo "========================================="
 cd apps/api
 
 echo "📦 Installing dependencies (including devDependencies)..."
-pnpm install --prod=false
+npm install --production=false
+npx prisma generate
 
 echo "🔨 Building TypeScript..."
-pnpm run build
+npm run build
 
 echo "✅ Build completed successfully!"
