@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../services/auth.service';
+import { verifyToken } from '../services/auth.service.js';
 
 // Extend Express Request to include auth data
 declare global {

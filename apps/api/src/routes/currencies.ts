@@ -3,8 +3,8 @@ import {
     getCurrencies,
     getCurrency,
     convertCurrency,
-} from '../controllers/currencies.controller';
-import { authenticateToken } from '../middleware/auth';
+} from '../controllers/currencies.controller.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 

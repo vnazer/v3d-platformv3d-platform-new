@@ -4,7 +4,7 @@ import {
     createLeadSchema,
     updateLeadSchema,
     getLeadsQuerySchema,
-} from '../validators/leads.validators';
+} from '../validators/leads.validators.js';
 
 const prisma = new PrismaClient();
 

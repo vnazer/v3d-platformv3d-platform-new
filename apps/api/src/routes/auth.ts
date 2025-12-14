@@ -8,8 +8,8 @@ import {
     requestPasswordReset,
     resetPassword,
     verifyEmail,
-} from '../controllers/auth.controller';
-import { authenticateToken } from '../middleware/auth';
+} from '../controllers/auth.controller.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 

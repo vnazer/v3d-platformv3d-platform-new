@@ -7,7 +7,7 @@ import {
     passwordResetRequestSchema,
     passwordResetSchema,
     emailVerificationSchema,
-} from '../validators/auth.validators';
+} from '../validators/auth.validators.js';
 import {
     hashPassword,
     comparePassword,
@@ -15,7 +15,7 @@ import {
     verifyToken,
     generateVerificationToken,
     generatePasswordResetToken,
-} from '../services/auth.service';
+} from '../services/auth.service.js';
 
 const prisma = new PrismaClient();
 

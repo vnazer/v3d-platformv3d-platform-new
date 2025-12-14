@@ -6,15 +6,15 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 
 // Import routes
-import authRoutes from './routes/auth';
-import projectsRoutes from './routes/projects';
-import leadsRoutes from './routes/leads';
-import unitsRoutes from './routes/units';
-import analyticsRoutes from './routes/analytics';
-import currenciesRoutes from './routes/currencies';
+import authRoutes from './routes/auth.js';
+import projectsRoutes from './routes/projects.js';
+import leadsRoutes from './routes/leads.js';
+import unitsRoutes from './routes/units.js';
+import analyticsRoutes from './routes/analytics.js';
+import currenciesRoutes from './routes/currencies.js';
 
 // Import middleware
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 dotenv.config({ path: '.env.local' });
 

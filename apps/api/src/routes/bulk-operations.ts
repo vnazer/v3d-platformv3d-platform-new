@@ -4,13 +4,13 @@ import {
     bulkUpdateStatus,
     bulkUpdatePrices,
     bulkDeleteUnits,
-} from '../controllers/bulk-operations.controller';
+} from '../controllers/bulk-operations.controller.js';
 import {
     importUnitsFromCSV,
     exportUnitsToCSV,
-} from '../controllers/csv-import.controller';
-import { authenticateToken } from '../middleware/auth';
-import { requirePermission } from '../middleware/permissions';
+} from '../controllers/csv-import.controller.js';
+import { authenticateToken } from '../middleware/auth.js';
+import { requirePermission } from '../middleware/permissions.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });

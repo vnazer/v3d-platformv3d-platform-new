@@ -4,7 +4,7 @@ import {
     createProjectSchema,
     updateProjectSchema,
     getProjectsQuerySchema,
-} from '../validators/projects.validators';
+} from '../validators/projects.validators.js';
 
 const prisma = new PrismaClient();
 

@@ -4,7 +4,7 @@ import {
     createUnitSchema,
     updateUnitSchema,
     getUnitsQuerySchema,
-} from '../validators/units.validators';
+} from '../validators/units.validators.js';
 
 const prisma = new PrismaClient();
 

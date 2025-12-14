@@ -7,8 +7,8 @@ import {
     deleteLead,
     assignLead,
     updateLeadStage,
-} from '../controllers/leads.controller';
-import { authenticateToken, roleMiddleware } from '../middleware/auth';
+} from '../controllers/leads.controller.js';
+import { authenticateToken, roleMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 

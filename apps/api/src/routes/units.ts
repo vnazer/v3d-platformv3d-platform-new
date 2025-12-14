@@ -5,9 +5,9 @@ import {
     createUnit,
     updateUnit,
     deleteUnit,
-} from '../controllers/units.controller';
-import bulkOperationsRoutes from './bulk-operations';
-import { authenticateToken, roleMiddleware } from '../middleware/auth';
+} from '../controllers/units.controller.js';
+import bulkOperationsRoutes from './bulk-operations.js';
+import { authenticateToken, roleMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
