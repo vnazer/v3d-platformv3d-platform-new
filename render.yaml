@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: v3d-api
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: .
+    buildCommand: sh build.sh
+    startCommand: cd apps/api && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
