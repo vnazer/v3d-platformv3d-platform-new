@@ -1,3 +1,6 @@
+# V3D Platform API - Render configuration
+# Build: runs build.sh from repo root (which cd's into apps/api)
+# Start: runs Node.js from apps/api/dist
 services:
   - type: web
     name: v3d-api
