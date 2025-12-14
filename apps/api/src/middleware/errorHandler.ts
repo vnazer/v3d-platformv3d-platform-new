@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
 
 /**
  * Global error handler middleware
@@ -25,19 +24,20 @@ export function errorHandler(
         });
     }
 
-    // Prisma errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // Prisma errors (duck typing since PrismaClientKnownRequestError isn't easily accessible)
+    const prismaError = error as any;
+    if (prismaError.code && typeof prismaError.code === 'string') {
         // Unique constraint violation
-        if (error.code === 'P2002') {
+        if (prismaError.code === 'P2002') {
             return res.status(409).json({
                 success: false,
                 error: 'A record with this value already exists',
-                field: (error.meta?.target as string[])?.join(', '),
+                field: (prismaError.meta?.target as string[])?.join(', '),
             });
         }
 
         // Record not found
-        if (error.code === 'P2025') {
+        if (prismaError.code === 'P2025') {
             return res.status(404).json({
                 success: false,
                 error: 'Record not found',

@@ -52,7 +52,7 @@ export async function importUnitsFromCSV(
         const successes: any[] = [];
 
         for (let i = 0; i < records.length; i++) {
-            const row = records[i];
+            const row: any = records[i]; // Type assertion for CSV parsed data
             const rowNum = i + 2; // +2 because row 1 is header, array is 0-indexed
 
             try {
