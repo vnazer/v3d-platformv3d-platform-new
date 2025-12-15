@@ -167,9 +167,11 @@ export async function createProject(
 
         const project = await prisma.project.create({
             data: {
-                organization_id: organizationId,
                 ...validatedData,
-            },
+                organization: {
+                    connect: { id: organizationId },
+                },
+            } as any,
             include: {
                 _count: {
                     select: {
