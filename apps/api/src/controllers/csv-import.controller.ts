@@ -158,7 +158,7 @@ export async function importUnitsFromCSV(
                     entity_id: `csv:${successes.length}`,
                     old_values: {},
                     new_values: { project_id, total: records.length },
-                    metadata: { errors: errors.length, successes: successes.length },
+                    changes: { errors: errors.length, successes: successes.length },
                     user_id: user.id,
                     organization_id: user.organization_id,
                 },
